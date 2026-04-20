@@ -538,7 +538,7 @@ func setVectorVal[S any](vec *vector, rowIdx mapping.IdxT, val S) error {
 		return setBignum(vec, rowIdx, val)
 	case TYPE_VARCHAR:
 		return setBytes(vec, rowIdx, val)
-	case TYPE_BLOB:
+	case TYPE_BLOB, TYPE_GEOMETRY:
 		return setBytes(vec, rowIdx, val)
 	case TYPE_BIT:
 		return setBit(vec, rowIdx, val)

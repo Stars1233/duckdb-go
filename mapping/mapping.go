@@ -8,7 +8,6 @@ import (
 
 type Type = bindings.Type
 
-//nolint:dupl
 const (
 	TypeInvalid        = bindings.TypeInvalid
 	TypeBoolean        = bindings.TypeBoolean
@@ -50,6 +49,7 @@ const (
 	TypeStringLiteral  = bindings.TypeStringLiteral
 	TypeIntegerLiteral = bindings.TypeIntegerLiteral
 	TypeTimeNS         = bindings.TypeTimeNS
+	TypeGeometry       = bindings.TypeGeometry
 )
 
 type State = bindings.State
@@ -197,7 +197,6 @@ type (
 
 // Helper functions for types without internal pointers.
 
-//nolint:dupl
 var (
 	NewDate                  = bindings.NewDate
 	DateMembers              = bindings.DateMembers

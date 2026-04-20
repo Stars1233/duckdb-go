@@ -672,6 +672,11 @@ func TestBit(t *testing.T) {
 		// Single byte (just padding count, no data) returns empty Bit
 		bEmpty := Bit{Data: []byte{0}}
 		require.Equal(t, 0, bEmpty.Len())
+
+		// Malformed values should not panic when stringified.
+		bInvalid := Bit{Data: []byte{7}}
+		require.Equal(t, 0, bInvalid.Len())
+		require.Empty(t, bInvalid.String())
 	})
 
 	t.Run("Validate", func(t *testing.T) {
@@ -696,6 +701,25 @@ func TestBit(t *testing.T) {
 		_, err = NewBitFromString("10102")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid character")
+	})
+
+	t.Run("BIT scan compatibility", func(t *testing.T) {
+		bits := "10101010101010101"
+
+		var s string
+		err := db.QueryRow(fmt.Sprintf("SELECT '%s'::BIT", bits)).Scan(&s)
+		require.NoError(t, err)
+		require.Equal(t, bits, s)
+
+		var raw []byte
+		err = db.QueryRow(fmt.Sprintf("SELECT '%s'::BIT", bits)).Scan(&raw)
+		require.NoError(t, err)
+		require.Equal(t, []byte(bits), raw)
+
+		var v any
+		err = db.QueryRow(fmt.Sprintf("SELECT '%s'::BIT", bits)).Scan(&v)
+		require.NoError(t, err)
+		require.Equal(t, bits, v)
 	})
 
 	t.Run("BIT binding", func(t *testing.T) {

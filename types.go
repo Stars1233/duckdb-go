@@ -141,8 +141,46 @@ func uuidToHugeInt(uuid UUID) mapping.HugeInt {
 // Data stores DuckDB's internal format: a padding-count prefix byte followed by
 // the bit bytes (right-aligned with 1-padded MSB bits).
 // For example, "10101" (5 bits) is stored as [3, 11110101] where 3 is the padding count.
+//
+//nolint:recvcheck // Scan must use a pointer receiver for sql.Scanner. Helpers stay on value receivers so Bit values implement fmt.Stringer.
 type Bit struct {
 	Data []byte
+}
+
+// Scan implements the sql.Scanner interface.
+func (b *Bit) Scan(v any) error {
+	if b == nil {
+		return fmt.Errorf("invalid Bit destination")
+	}
+
+	switch val := v.(type) {
+	case nil:
+		b.Data = nil
+		return nil
+	case Bit:
+		if err := val.Validate(); err != nil {
+			return err
+		}
+		b.Data = append([]byte(nil), val.Data...)
+		return nil
+	case *Bit:
+		if val == nil {
+			b.Data = nil
+			return nil
+		}
+		return b.Scan(*val)
+	case string:
+		bit, err := NewBitFromString(val)
+		if err != nil {
+			return err
+		}
+		*b = bit
+		return nil
+	case []byte:
+		return b.Scan(string(val))
+	default:
+		return fmt.Errorf("invalid Bit value type: %T", v)
+	}
 }
 
 // NewBitFromString creates a Bit from a string of '0' and '1' characters.
@@ -199,16 +237,20 @@ func (b Bit) Validate() error {
 
 // Len returns the number of bits.
 func (b Bit) Len() int {
-	if len(b.Data) == 0 {
+	if len(b.Data) <= 1 {
 		return 0
 	}
-	return (len(b.Data)-1)*8 - int(b.Data[0])
+	length := (len(b.Data)-1)*8 - int(b.Data[0])
+	if length < 0 {
+		return 0
+	}
+	return length
 }
 
 // String returns the bit string representation (e.g., "10101").
 func (b Bit) String() string {
 	length := b.Len()
-	if length == 0 {
+	if length <= 0 {
 		return ""
 	}
 	var sb strings.Builder

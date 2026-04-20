@@ -79,6 +79,9 @@ func (r *rows) Next(dst []driver.Value) error {
 		if dst[colIdx], err = r.chunk.GetValue(colIdx, r.rowCount); err != nil {
 			return err
 		}
+		if bit, ok := dst[colIdx].(Bit); ok {
+			dst[colIdx] = bit.String()
+		}
 	}
 	r.rowCount++
 
@@ -133,7 +136,9 @@ func (r *rows) getScanType(logicalType mapping.LogicalType, index mapping.IdxT) 
 	case TYPE_BLOB:
 		return reflectTypeBytes
 	case TYPE_BIT:
-		return reflectTypeBit
+		// rows.Next exposes BIT values as strings so database/sql can scan them
+		// into string, []byte, and Bit destinations via the normal conversion path.
+		return reflectTypeString
 	case TYPE_DECIMAL:
 		return reflectTypeDecimal
 	case TYPE_LIST:

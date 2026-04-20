@@ -236,6 +236,18 @@ func setBit[S any](vec *vector, rowIdx mapping.IdxT, val S) error {
 		bit = v
 	case *Bit:
 		bit = *v
+	case string:
+		var err error
+		bit, err = NewBitFromString(v)
+		if err != nil {
+			return err
+		}
+	case []byte:
+		var err error
+		bit, err = NewBitFromString(string(v))
+		if err != nil {
+			return err
+		}
 	default:
 		return castError(reflect.TypeOf(val).String(), reflectTypeBit.String())
 	}

@@ -8,6 +8,7 @@ import (
 
 type Type = bindings.Type
 
+//nolint:dupl
 const (
 	TypeInvalid        = bindings.TypeInvalid
 	TypeBoolean        = bindings.TypeBoolean
@@ -197,6 +198,7 @@ type (
 
 // Helper functions for types without internal pointers.
 
+//nolint:dupl
 var (
 	NewDate                  = bindings.NewDate
 	DateMembers              = bindings.DateMembers
@@ -224,6 +226,8 @@ var (
 	TimestampStructMembers   = bindings.TimestampStructMembers
 	NewInterval              = bindings.NewInterval
 	IntervalMembers          = bindings.IntervalMembers
+	NewBit                   = bindings.NewBit
+	BitMembers               = bindings.BitMembers
 	NewHugeInt               = bindings.NewHugeInt
 	HugeIntMembers           = bindings.HugeIntMembers
 	NewUHugeInt              = bindings.NewUHugeInt

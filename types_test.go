@@ -1575,4 +1575,3 @@ func TestGeometry(t *testing.T) {
 	require.NotEmpty(t, res)
 	require.False(t, r.Next())
 }
-

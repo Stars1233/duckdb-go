@@ -210,7 +210,36 @@ For Darwin ARM64, you can then build your module like so:
 CGO_ENABLED=1 CPPFLAGS="-DDUCKDB_STATIC_BUILD" CGO_LDFLAGS="-lduckdb_bundle -lc++ -L/path/to/libs" go build -tags=duckdb_use_static_lib
 ```
 
-You can also find these steps in the `Makefile` and the `tests.yaml`.
+#### Using a local DuckDB checkout
+
+If you want to validate local DuckDB changes from `duckdb-go`, point `duckdb-go` at a static library built from your local DuckDB checkout.
+
+1. Build DuckDB and create the bundled static archive in your local checkout. Rerun this command after editing DuckDB source files.
+
+```sh
+cd /path/to/duckdb
+make bundle-library
+```
+
+2. Run `duckdb-go` against that archive. The example below uses macOS linker flags.
+
+```sh
+CGO_ENABLED=1 \
+CPPFLAGS="-DDUCKDB_STATIC_BUILD" \
+CGO_LDFLAGS="-lduckdb_bundle -lc++ -L/path/to/duckdb/build/release" \
+go test -tags=duckdb_use_static_lib ./...
+```
+
+For targeted verification, run only the reproducer or regression test you care about:
+
+```sh
+CGO_ENABLED=1 \
+CPPFLAGS="-DDUCKDB_STATIC_BUILD" \
+CGO_LDFLAGS="-lduckdb_bundle -lc++ -L/path/to/duckdb/build/release" \
+go test -tags=duckdb_use_static_lib -run TestName -v
+```
+
+This lets you verify a local DuckDB fix from `duckdb-go` without replacing the bundled libraries in this repository. The same static-linking pattern is also used in the `Makefile` and `tests.yaml`.
 
 The DuckDB team also publishes pre-built libraries as part of their [releases](https://github.com/duckdb/duckdb/releases).
 The published zipped archives contain libraries for DuckDB core, the third-party libraries, and the default extensions.

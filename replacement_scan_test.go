@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const replacementScanStringWithNull = "Hello\x00World"
-
 // FIXME: More replacement scan tests, also failure paths.
 func TestReplacementScan(t *testing.T) {
 	c := newConnectorWrapper(t, ``, func(execer driver.ExecerContext) error {
@@ -58,51 +56,57 @@ func TestReplacementScanList(t *testing.T) {
 }
 
 func TestReplacementScanStringWithNullBytes(t *testing.T) {
-	c := newConnectorWrapper(t, ``, func(execer driver.ExecerContext) error {
-		_, err := execer.ExecContext(
-			t.Context(),
-			`CREATE MACRO replacement_string(s) AS TABLE SELECT s AS value`,
-			nil,
-		)
-		return err
-	})
-	defer closeConnectorWrapper(t, c)
+	for _, tc := range nullByteStringTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newConnectorWrapper(t, ``, func(execer driver.ExecerContext) error {
+				_, err := execer.ExecContext(
+					t.Context(),
+					`CREATE MACRO replacement_string(s) AS TABLE SELECT s AS value`,
+					nil,
+				)
+				return err
+			})
+			defer closeConnectorWrapper(t, c)
 
-	input := replacementScanStringWithNull
-	RegisterReplacementScan(c, func(tableName string) (string, []any, error) {
-		return "replacement_string", []any{input}, nil
-	})
+			RegisterReplacementScan(c, func(tableName string) (string, []any, error) {
+				return "replacement_string", []any{tc.input}, nil
+			})
 
-	db := sql.OpenDB(c)
-	defer closeDbWrapper(t, db)
+			db := sql.OpenDB(c)
+			defer closeDbWrapper(t, db)
 
-	var got string
-	require.NoError(t, db.QueryRow("SELECT value FROM any_table").Scan(&got))
-	require.Equal(t, input, got)
-	require.Len(t, got, len(input))
+			var got string
+			require.NoError(t, db.QueryRow("SELECT value FROM any_table").Scan(&got))
+			require.Equal(t, tc.input, got)
+			require.Len(t, got, len(tc.input))
+		})
+	}
 }
 
 func TestReplacementScanStringListWithNullBytes(t *testing.T) {
-	c := newConnectorWrapper(t, ``, func(execer driver.ExecerContext) error {
-		_, err := execer.ExecContext(
-			t.Context(),
-			`CREATE MACRO replacement_string_list(vals) AS TABLE SELECT unnest(vals) AS value`,
-			nil,
-		)
-		return err
-	})
-	defer closeConnectorWrapper(t, c)
+	for _, tc := range nullByteStringTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newConnectorWrapper(t, ``, func(execer driver.ExecerContext) error {
+				_, err := execer.ExecContext(
+					t.Context(),
+					`CREATE MACRO replacement_string_list(vals) AS TABLE SELECT unnest(vals) AS value`,
+					nil,
+				)
+				return err
+			})
+			defer closeConnectorWrapper(t, c)
 
-	input := replacementScanStringWithNull
-	RegisterReplacementScan(c, func(tableName string) (string, []any, error) {
-		return "replacement_string_list", []any{[]string{input}}, nil
-	})
+			RegisterReplacementScan(c, func(tableName string) (string, []any, error) {
+				return "replacement_string_list", []any{[]string{tc.input}}, nil
+			})
 
-	db := sql.OpenDB(c)
-	defer closeDbWrapper(t, db)
+			db := sql.OpenDB(c)
+			defer closeDbWrapper(t, db)
 
-	var got string
-	require.NoError(t, db.QueryRow("SELECT value FROM any_table").Scan(&got))
-	require.Equal(t, input, got)
-	require.Len(t, got, len(input))
+			var got string
+			require.NoError(t, db.QueryRow("SELECT value FROM any_table").Scan(&got))
+			require.Equal(t, tc.input, got)
+			require.Len(t, got, len(tc.input))
+		})
+	}
 }

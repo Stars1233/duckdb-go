@@ -1593,25 +1593,31 @@ func TestTimestampBinding(t *testing.T) {
 	require.Equal(t, 13, expectedCount)
 }
 
+var nullByteStringTestCases = []struct {
+	name  string
+	input string
+}{
+	{"multiple nulls", "a\x00b\x00c\x00"},
+	{"null in middle", "Hello\x00World"},
+	{"null after first char", "A\x00BCDEFG"},
+	{"only null", "\x00"},
+	{"null at start", "\x00Hello"},
+	{"null at end", "Hello\x00"},
+}
+
+type nullByteStringer string
+
+func (s nullByteStringer) String() string {
+	return string(s)
+}
+
 func TestBindStringWithNullBytes(t *testing.T) {
 	db := openDbWrapper(t, ``)
 	defer closeDbWrapper(t, db)
 
 	createTable(t, db, `CREATE TABLE null_byte_test (id INTEGER PRIMARY KEY, text_value VARCHAR)`)
 
-	testCases := []struct {
-		name  string
-		input string
-	}{
-		{"multiple nulls", "a\x00b\x00c\x00"},
-		{"null in middle", "Hello\x00World"},
-		{"null after first char", "A\x00BCDEFG"},
-		{"only null", "\x00"},
-		{"null at start", "\x00Hello"},
-		{"null at end", "Hello\x00"},
-	}
-
-	for i, tc := range testCases {
+	for i, tc := range nullByteStringTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := db.Exec("INSERT INTO null_byte_test (id, text_value) VALUES (?, ?)", i, tc.input)
 			require.NoError(t, err)
@@ -1629,13 +1635,30 @@ func TestBindStringListWithNullBytes(t *testing.T) {
 	db := openDbWrapper(t, ``)
 	defer closeDbWrapper(t, db)
 
-	input := "Hello\x00World"
+	for _, tc := range nullByteStringTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got Composite[[]string]
+			err := db.QueryRow(`SELECT ?::VARCHAR[]`, []string{tc.input}).Scan(&got)
+			require.NoError(t, err)
+			require.Equal(t, []string{tc.input}, got.Get())
+			require.Len(t, got.Get()[0], len(tc.input))
+		})
+	}
+}
 
-	var got Composite[[]string]
-	err := db.QueryRow(`SELECT ?::VARCHAR[]`, []string{input}).Scan(&got)
-	require.NoError(t, err)
-	require.Equal(t, []string{input}, got.Get())
-	require.Len(t, got.Get()[0], len(input))
+func TestBindStringerWithNullBytes(t *testing.T) {
+	db := openDbWrapper(t, ``)
+	defer closeDbWrapper(t, db)
+
+	for _, tc := range nullByteStringTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got string
+			err := db.QueryRow(`SELECT ?`, nullByteStringer(tc.input)).Scan(&got)
+			require.NoError(t, err)
+			require.Equal(t, tc.input, got)
+			require.Len(t, got, len(tc.input))
+		})
+	}
 }
 
 func TestBindBlobWithNullBytes(t *testing.T) {

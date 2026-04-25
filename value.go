@@ -9,6 +9,10 @@ import (
 	"github.com/duckdb/duckdb-go/v2/mapping"
 )
 
+func createVarchar(s string) mapping.Value {
+	return mapping.CreateVarcharLength(s, mapping.IdxT(len(s)))
+}
+
 func getValue(v mapping.Value) (any, error) {
 	// The logical type is valid as long as v (mapping.Value) is valid,
 	// i.e., it must not be destroyed.
@@ -132,8 +136,7 @@ func createPrimitiveValue(t mapping.Type, v any) (mapping.Value, error) {
 	case TYPE_DOUBLE:
 		return mapping.CreateDouble(v.(float64)), nil
 	case TYPE_VARCHAR:
-		vv := v.(string)
-		return mapping.CreateVarcharLength(vv, mapping.IdxT(len(vv))), nil
+		return createVarchar(v.(string)), nil
 	case TYPE_TIMESTAMP:
 		vv, err := inferTimestamp(t, v)
 		if err != nil {

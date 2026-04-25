@@ -56,7 +56,7 @@ func replacement_scan_callback(infoPtr, tableNamePtr, data unsafe.Pointer) {
 	for _, param := range params {
 		switch paramType := param.(type) {
 		case string:
-			val := mapping.CreateVarcharLength(paramType, mapping.IdxT(len(paramType)))
+			val := createVarchar(paramType)
 			mapping.ReplacementScanAddParameter(info, val)
 			mapping.DestroyValue(&val)
 		case int64:
@@ -67,7 +67,7 @@ func replacement_scan_callback(infoPtr, tableNamePtr, data unsafe.Pointer) {
 			// Create values and logical type.
 			values := make([]mapping.Value, len(paramType))
 			for i, v := range paramType {
-				values[i] = mapping.CreateVarcharLength(v, mapping.IdxT(len(v)))
+				values[i] = createVarchar(v)
 			}
 			lt := mapping.CreateLogicalType(mapping.TypeVarchar)
 			val := mapping.CreateListValue(lt, values)

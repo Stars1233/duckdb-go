@@ -132,7 +132,8 @@ func createPrimitiveValue(t mapping.Type, v any) (mapping.Value, error) {
 	case TYPE_DOUBLE:
 		return mapping.CreateDouble(v.(float64)), nil
 	case TYPE_VARCHAR:
-		return mapping.CreateVarchar(v.(string)), nil
+		vv := v.(string)
+		return mapping.CreateVarcharLength(vv, mapping.IdxT(len(vv))), nil
 	case TYPE_TIMESTAMP:
 		vv, err := inferTimestamp(t, v)
 		if err != nil {

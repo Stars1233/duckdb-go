@@ -1625,6 +1625,19 @@ func TestBindStringWithNullBytes(t *testing.T) {
 	}
 }
 
+func TestBindStringListWithNullBytes(t *testing.T) {
+	db := openDbWrapper(t, ``)
+	defer closeDbWrapper(t, db)
+
+	input := "Hello\x00World"
+
+	var got Composite[[]string]
+	err := db.QueryRow(`SELECT ?::VARCHAR[]`, []string{input}).Scan(&got)
+	require.NoError(t, err)
+	require.Equal(t, []string{input}, got.Get())
+	require.Len(t, got.Get()[0], len(input))
+}
+
 func TestBindBlobWithNullBytes(t *testing.T) {
 	db := openDbWrapper(t, ``)
 	defer closeDbWrapper(t, db)

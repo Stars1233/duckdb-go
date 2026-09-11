@@ -32,6 +32,19 @@ func BenchmarkSetRowValueDispatch(b *testing.B) {
 	}
 }
 
+func BenchmarkDataChunkSetValueDispatch(b *testing.B) {
+	chunk := newTypeTestChunk(b, TYPE_BIGINT)
+	values := []any{int64(1_000_000), int64(2_000_000)}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := range b.N {
+		if err := chunk.SetValue(0, 0, values[i%len(values)]); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkSetChunkValueDispatchTypes(b *testing.B) {
 	b.Run("BIGINT_from_int64", func(b *testing.B) {
 		benchmarkSetChunkValueType(b, TYPE_BIGINT, []int64{1_000_000, 2_000_000})

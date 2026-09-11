@@ -466,6 +466,23 @@ func TestSetChunkValueSQLNullRejectsWrites(t *testing.T) {
 	require.ErrorIs(t, chunk.SetValue(0, 0, null), errSetSQLNULLValue)
 }
 
+// TestSetChunkValueErrorReportsPosition covers both write entry points
+// reporting the same column and row context on failure.
+func TestSetChunkValueErrorReportsPosition(t *testing.T) {
+	chunk := newTypeTestChunk(t, TYPE_BIGINT)
+	const input = "sensitive input"
+
+	genericErr := SetChunkValue(chunk, 0, 3, input)
+	require.ErrorContains(t, genericErr, setValueErrMsg)
+	require.ErrorContains(t, genericErr, "at row 3, col 0")
+	require.NotContains(t, genericErr.Error(), input)
+
+	anyErr := chunk.SetValue(0, 3, input)
+	require.ErrorContains(t, anyErr, setValueErrMsg)
+	require.ErrorContains(t, anyErr, "at row 3, col 0")
+	require.NotContains(t, anyErr.Error(), input)
+}
+
 func TestDataChunkGetValueBubblesGetterErrors(t *testing.T) {
 	tests := []struct {
 		name  string

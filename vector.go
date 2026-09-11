@@ -1,8 +1,6 @@
 package duckdb
 
 import (
-	"math/big"
-	"time"
 	"unsafe"
 
 	"github.com/duckdb/duckdb-go/v2/mapping"
@@ -31,7 +29,9 @@ type vector struct {
 	// The vector's type information.
 	vectorTypeInfo
 
-	// isJSON distinguishes JSON from ordinary VARCHAR storage.
+	// isJSON distinguishes JSON from ordinary VARCHAR storage. DuckDB stores
+	// JSON as VARCHAR, so Type alone cannot tell the two apart, and JSON writes
+	// must marshal their input instead of storing it verbatim.
 	isJSON bool
 
 	// The underlying DuckDB vector.
@@ -42,8 +42,6 @@ type vector struct {
 	maskPtr unsafe.Pointer
 	// A callback function to get a value from this vector.
 	getFn fnGetVectorValue
-	// A callback function to write to this vector.
-	setFn fnSetVectorValue
 	// The child vectors of nested data types.
 	childVectors []vector
 	// structTemplate is a pre-allocated map[string]any with all struct keys
@@ -53,7 +51,7 @@ type vector struct {
 }
 
 func (vec *vector) SetValue(rowIdx int, val any) error {
-	return vec.setFn(vec, mapping.IdxT(rowIdx), val)
+	return setVectorVal(vec, mapping.IdxT(rowIdx), val)
 }
 
 //nolint:gocyclo
@@ -183,13 +181,6 @@ func initBool(vec *vector) {
 		}
 		return getPrimitive[bool](vec, rowIdx), nil
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setBool(vec, rowIdx, val)
-	}
 	vec.Type = TYPE_BOOLEAN
 }
 
@@ -199,13 +190,6 @@ func initNumeric[T numericType](vec *vector, t Type) {
 			return nil, nil
 		}
 		return getPrimitive[T](vec, rowIdx), nil
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setNumeric[any, T](vec, rowIdx, val)
 	}
 	vec.Type = t
 }
@@ -217,13 +201,6 @@ func (vec *vector) initTS(t Type) {
 		}
 		return vec.getTS(t, rowIdx), nil
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*time.Time)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setTS(vec, rowIdx, val)
-	}
 	vec.Type = t
 }
 
@@ -233,13 +210,6 @@ func (vec *vector) initDate() {
 			return nil, nil
 		}
 		return vec.getDate(rowIdx), nil
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*time.Time)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setDate(vec, rowIdx, val)
 	}
 	vec.Type = TYPE_DATE
 }
@@ -251,13 +221,6 @@ func (vec *vector) initTime(t Type) {
 		}
 		return vec.getTime(rowIdx), nil
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*time.Time)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setTime(vec, rowIdx, val)
-	}
 	vec.Type = t
 }
 
@@ -267,13 +230,6 @@ func (vec *vector) initInterval() {
 			return nil, nil
 		}
 		return vec.getInterval(rowIdx), nil
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*Interval)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setInterval(vec, rowIdx, val)
 	}
 	vec.Type = TYPE_INTERVAL
 }
@@ -285,13 +241,6 @@ func (vec *vector) initHugeint() {
 		}
 		return vec.getHugeint(rowIdx), nil
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*big.Int)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setHugeint(vec, rowIdx, val)
-	}
 	vec.Type = TYPE_HUGEINT
 }
 
@@ -301,13 +250,6 @@ func (vec *vector) initUhugeint() {
 			return nil, nil
 		}
 		return vec.getUhugeint(rowIdx), nil
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*big.Int)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setUhugeint(vec, rowIdx, val)
 	}
 	vec.Type = TYPE_UHUGEINT
 }
@@ -319,13 +261,6 @@ func (vec *vector) initBignum() {
 		}
 		return vec.getBigNum(rowIdx), nil
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*big.Int)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setBignum(vec, rowIdx, val)
-	}
 	vec.Type = TYPE_BIGNUM
 }
 
@@ -335,13 +270,6 @@ func (vec *vector) initBytes(t Type) {
 			return nil, nil
 		}
 		return vec.getBytes(rowIdx), nil
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setBytes(vec, rowIdx, val)
 	}
 	vec.Type = t
 }
@@ -353,13 +281,6 @@ func (vec *vector) initBit() {
 		}
 		return vec.getBit(rowIdx), nil
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*Bit)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setBit(vec, rowIdx, val)
-	}
 	vec.Type = TYPE_BIT
 }
 
@@ -369,13 +290,6 @@ func (vec *vector) initJSON() {
 			return nil, nil
 		}
 		return vec.getJSON(rowIdx)
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setJSON(vec, rowIdx, val)
 	}
 	vec.Type = TYPE_VARCHAR
 }
@@ -392,13 +306,6 @@ func (vec *vector) initDecimal(logicalType mapping.LogicalType, colIdx int) erro
 				return nil, nil
 			}
 			return vec.getDecimal(rowIdx)
-		}
-		vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-			if val == nil {
-				vec.setNull(rowIdx)
-				return nil
-			}
-			return setDecimal(vec, rowIdx, val)
 		}
 	default:
 		return addIndexToError(unsupportedTypeError(typeToStringMap[t]), colIdx)
@@ -432,13 +339,6 @@ func (vec *vector) initEnum(logicalType mapping.LogicalType, colIdx int) error {
 			}
 			return vec.getEnum(rowIdx)
 		}
-		vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-			if val == nil {
-				vec.setNull(rowIdx)
-				return nil
-			}
-			return setEnum(vec, rowIdx, val)
-		}
 	default:
 		return addIndexToError(unsupportedTypeError(typeToStringMap[t]), colIdx)
 	}
@@ -465,13 +365,6 @@ func (vec *vector) initList(logicalType mapping.LogicalType, colIdx int) error {
 			return nil, nil
 		}
 		return vec.getList(rowIdx)
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setList(vec, rowIdx, val)
 	}
 	vec.Type = TYPE_LIST
 	return nil
@@ -516,13 +409,6 @@ func (vec *vector) initStruct(logicalType mapping.LogicalType, colIdx int) error
 			return nil, nil
 		}
 		return vec.getStruct(rowIdx)
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setStruct(vec, rowIdx, val)
 	}
 	vec.Type = TYPE_STRUCT
 	return nil
@@ -571,13 +457,6 @@ func (vec *vector) initMap(logicalType mapping.LogicalType, colIdx int) error {
 		}
 		return vec.getMap(rowIdx)
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setMap(vec, rowIdx, val)
-	}
 	vec.Type = TYPE_MAP
 	return nil
 }
@@ -601,13 +480,6 @@ func (vec *vector) initArray(logicalType mapping.LogicalType, colIdx int) error 
 			return nil, nil
 		}
 		return vec.getArray(rowIdx)
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setArray(vec, rowIdx, val)
 	}
 	vec.Type = TYPE_ARRAY
 	return nil
@@ -648,13 +520,6 @@ func (vec *vector) initUnion(logicalType mapping.LogicalType, colIdx int) error 
 		}
 		return vec.getUnion(rowIdx)
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setUnion(vec, rowIdx, val)
-	}
 	vec.Type = TYPE_UNION
 	return nil
 }
@@ -667,22 +532,12 @@ func (vec *vector) initUUID() {
 		hugeInt := getPrimitive[mapping.HugeInt](vec, rowIdx)
 		return hugeIntToUUID(&hugeInt), nil
 	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		if val == nil || val == (*UUID)(nil) {
-			vec.setNull(rowIdx)
-			return nil
-		}
-		return setUUID(vec, rowIdx, val)
-	}
 	vec.Type = TYPE_UUID
 }
 
 func (vec *vector) initSQLNull() {
 	vec.getFn = func(vec *vector, rowIdx mapping.IdxT) (any, error) {
 		return nil, nil
-	}
-	vec.setFn = func(vec *vector, rowIdx mapping.IdxT, val any) error {
-		return errSetSQLNULLValue
 	}
 	vec.Type = TYPE_SQLNULL
 }

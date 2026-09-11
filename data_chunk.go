@@ -78,31 +78,30 @@ func (chunk *DataChunk) GetValue(colIdx, rowIdx int) (any, error) {
 }
 
 // SetValue writes a single value to a column in a data chunk.
-// Note that this requires casting the type for each invocation.
+// Note that this requires casting the type for each invocation, which usually
+// allocates. Prefer SetChunkValue on hot paths.
 // If the column is not projected, the value is ignored.
+// See SetChunkValue for how values map onto JSON-typed columns.
 // NOTE: Custom ENUM types must be passed as string.
 func (chunk *DataChunk) SetValue(colIdx, rowIdx int, val any) error {
-	colIdx, err := chunk.verifyAndRewriteColIdx(colIdx)
-	if err != nil && errors.Is(err, errUnprojectedColumn) {
-		return nil
-	} else if err != nil {
-		return getError(errAPI, err)
-	}
-
-	column := &chunk.columns[colIdx]
-	if err = column.SetValue(rowIdx, val); err != nil {
-		return setValueError(colIdx, rowIdx, val, err)
-	}
-
-	return nil
+	return setChunkVal(chunk, colIdx, rowIdx, val)
 }
 
 // SetChunkValue writes a single value to a column in a data chunk.
-// The difference with `chunk.SetValue` is that `SetChunkValue` does not
-// require casting the value to `any` (implicitly).
+// Unlike DataChunk.SetValue, it keeps the caller's type rather than casting to
+// any, so writes do not allocate unless the conversion itself has to.
 // If the column is not projected, the value is ignored.
+// Values written to JSON-typed columns are marshaled with encoding/json, so a
+// string becomes a JSON string and a []byte becomes a base64-encoded JSON
+// string. Use json.RawMessage to write a pre-serialized JSON document.
 // NOTE: Custom ENUM types must be passed as string.
 func SetChunkValue[T any](chunk DataChunk, colIdx, rowIdx int, val T) error {
+	return setChunkVal(&chunk, colIdx, rowIdx, val)
+}
+
+// setChunkVal is the shared body of the three write entry points. It takes the
+// chunk by pointer so that none of them copies it per value written.
+func setChunkVal[T any](chunk *DataChunk, colIdx, rowIdx int, val T) error {
 	colIdx, err := chunk.verifyAndRewriteColIdx(colIdx)
 	if err != nil && errors.Is(err, errUnprojectedColumn) {
 		return nil
@@ -110,7 +109,11 @@ func SetChunkValue[T any](chunk DataChunk, colIdx, rowIdx int, val T) error {
 		return getError(errAPI, err)
 	}
 
-	return setVectorVal(&chunk.columns[colIdx], mapping.IdxT(rowIdx), val)
+	if err = setVectorVal(&chunk.columns[colIdx], mapping.IdxT(rowIdx), val); err != nil {
+		return setValueError(colIdx, rowIdx, err)
+	}
+
+	return nil
 }
 
 func inBounds[T any](s []T, idx int) bool {

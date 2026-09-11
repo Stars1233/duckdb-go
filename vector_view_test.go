@@ -2,6 +2,7 @@ package duckdb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"unsafe"
@@ -166,7 +167,7 @@ func TestVarcharVectorViewRejectsJSONAlias(t *testing.T) {
 	chunk := &DataChunk{}
 	require.NoError(t, chunk.initFromTypes([]mapping.LogicalType{logicalType}, true))
 	t.Cleanup(chunk.close)
-	require.NoError(t, SetChunkValue(*chunk, 0, 0, `{"answer":42}`))
+	require.NoError(t, SetChunkValue(*chunk, 0, 0, json.RawMessage(`{"answer":42}`)))
 	require.NoError(t, chunk.SetSize(1))
 
 	_, err := GetVectorView[string](mustGetVector(t, chunk, 0))

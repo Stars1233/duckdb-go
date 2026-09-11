@@ -44,8 +44,8 @@ func columnCountError(actual, expected int) error {
 	return fmt.Errorf("%s: expected %d, got %d", columnCountErrMsg, expected, actual)
 }
 
-func setValueError(colIdx, rowIdx int, val any, err error) error {
-	return fmt.Errorf("%s: at row %d, col %d, val: %v: %w", setValueErrMsg, rowIdx, colIdx, val, err)
+func setValueError(colIdx, rowIdx int, err error) error {
+	return fmt.Errorf("%s: at row %d, col %d: %w", setValueErrMsg, rowIdx, colIdx, err)
 }
 
 func paramIndexError(idx int, max uint64) error {
